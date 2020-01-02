@@ -1080,7 +1080,7 @@ class Request:
             return fallback
         return value
 
-    def open(self, method, url, data=None, headers=None, use_proxy=None,
+    def open(self, method, url, data=None, file=file, headers=None, use_proxy=None,
              force=None, last_mod_time=None, timeout=None, validate_certs=None,
              url_username=None, url_password=None, http_agent=None,
              force_basic_auth=None, follow_redirects=None,
@@ -1361,7 +1361,7 @@ class Request:
         return self.open('DELETE', url, **kwargs)
 
 
-def open_url(url, data=None, headers=None, method=None, use_proxy=True,
+def open_url(url, data=None, file=None, headers=None, method=None, use_proxy=True,
              force=False, last_mod_time=None, timeout=10, validate_certs=True,
              url_username=None, url_password=None, http_agent=None,
              force_basic_auth=False, follow_redirects='urllib2',
@@ -1374,7 +1374,7 @@ def open_url(url, data=None, headers=None, method=None, use_proxy=True,
     Does not require the module environment
     '''
     method = method or ('POST' if data else 'GET')
-    return Request().open(method, url, data=data, headers=headers, use_proxy=use_proxy,
+    return Request().open(method, url, data=data, file=file, headers=headers, use_proxy=use_proxy,
                           force=force, last_mod_time=last_mod_time, timeout=timeout, validate_certs=validate_certs,
                           url_username=url_username, url_password=url_password, http_agent=http_agent,
                           force_basic_auth=force_basic_auth, follow_redirects=follow_redirects,

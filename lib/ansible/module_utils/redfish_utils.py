@@ -63,9 +63,9 @@ class RedfishUtils(object):
                     'msg': "Failed GET request to '%s': '%s'" % (uri, to_text(e))}
         return {'ret': True, 'data': data, 'headers': headers}
 
-    def post_request(self, uri, pyld):
+    def post_request(self, uri, pyld, file):
         try:
-            resp = open_url(uri, data=json.dumps(pyld),
+            resp = open_url(uri, data=json.dumps(pyld),file=file,
                             headers=POST_HEADERS, method="POST",
                             url_username=self.creds['user'],
                             url_password=self.creds['pswd'],
@@ -2352,3 +2352,57 @@ class RedfishUtils(object):
         if response['ret'] is False:
             return response
         return {'ret': True, 'changed': True, 'msg': "Modified Manager NIC"}
+
+    def get_task_status(self, task_uri):
+        result = {}
+        response = self.get_request(self.root_uri + task_uri)
+        if response['ret'] is False:
+            return response
+        data = response['data']
+
+        if 'TaskState' in data and data['TaskState'] != '':
+            task_state = data['TaskState']
+            result = {'ret': True, 'TaskState': data['TaskState']}
+        else:
+            result = {'ret': False, 'TaskState': ''}
+        return result
+
+    def update_firmware_push(self, image_path):
+        # get UpdateService
+        response = self.get_request(self.root_uri + self.update_uri)
+        if response['ret'] is False:
+            return response
+        data = response['data']
+
+        # find HttpPushUri, use it to push the image
+        http_push_uri = ''
+        if "HttpPushUri" in data and data['HttpPushUri'] != '':
+            http_push_uri = data['HttpPushUri']
+        else:
+            return {'ret': False, 'msg': "Uri for push is not found."}
+
+        if not image_path:
+            return {'ret': False, 'msg': "image_path is required to update firmware."}
+        data={}
+        payload = {'data-binary': open(image_path,'rb')}
+        response = self.post_request(self.root_uri + http_push_uri, data, payload)
+        if response['ret'] is False:
+            return response
+
+        # check update task status until it ended
+        END_TASK_STATE = ["Cancelled", "Exception", "Killed", "Interrupted", "Suspended"]
+        result = {}
+        resp = response['resp']
+        data = json.loads(resp.read())
+        task_uri = data['@odata.id']
+        while True:
+            result = self.get_task_status(task_uri)
+            if result['ret'] == False:
+                return {'ret': False, 'msg': "Failed to get update status"}
+            task_state = result['TaskState']
+            if task_state== "Completed":
+                return {'ret': True, 'changed': True, 'msg': "Succeed to update firmware via push"}
+            elif task_state in END_TASK_STATE:
+                return {'ret': False, 'msg': "Failed to update firmware via push"}
+            else:
+                continue

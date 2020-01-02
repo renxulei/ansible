@@ -119,6 +119,12 @@ options:
       - The ID of the System, Manager or Chassis to modify
     type: str
     version_added: "2.10"
+  image_path:
+    required: false
+    description:
+      - local file path of firmware image
+    type: str
+    version_added: '2.10'
 
 author: "Jose Delarosa (@jose-delarosa)"
 '''
@@ -294,6 +300,15 @@ EXAMPLES = '''
       username: "{{ username }}"
       password: "{{ password }}"
       timeout: 20
+
+  - name: Update Firmware via Push
+    redfish_command:
+      category: Update
+      command: UpdateFirmwarePush
+      image_path: "/example_file_path/myupdate.img"
+      baseuri: "{{ baseuri }}"
+      username: "{{ username }}"
+      password: "{{ password }}"
 '''
 
 RETURN = '''
@@ -318,6 +333,7 @@ CATEGORY_COMMANDS_ALL = {
                  "UpdateUserRole", "UpdateUserPassword", "UpdateUserName",
                  "UpdateAccountServiceProperties"],
     "Manager": ["GracefulRestart", "ClearLogs"],
+    "Update": ["UpdateFirmwarePush"]
 }
 
 
@@ -340,7 +356,8 @@ def main():
             timeout=dict(type='int', default=10),
             uefi_target=dict(),
             boot_next=dict(),
-            resource_id=dict()
+            resource_id=dict(),
+            image_path=dict(default='')
         ),
         supports_check_mode=False
     )
@@ -365,6 +382,9 @@ def main():
 
     # System, Manager or Chassis ID to modify
     resource_id = module.params['resource_id']
+
+    # path of firmware image to be updated 
+    image_path = module.params['image_path']
 
     # Build root URI
     root_uri = "https://" + module.params['baseuri']
@@ -446,6 +466,16 @@ def main():
 
         for command in command_list:
             result = MANAGER_COMMANDS[command]()
+
+    elif category == "Update":
+        # execute only if we find a Update service resource
+        result = rf_utils._find_updateservice_resource()
+        if result['ret'] is False:
+            module.fail_json(msg=to_native(result['msg']))
+
+        for command in command_list:
+            if command == "UpdateFirmwarePush":
+                result = rf_utils.update_firmware_push(image_path)
 
     # Return data back or fail with proper message
     if result['ret'] is True:
